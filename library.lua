@@ -13,6 +13,8 @@
     })
     local Tab = Window:NewTab("Main")
     local Section = Tab:NewSection("Features")
+    local Selection = Section:NewSelection("Areas to Steal", {"Snow", "Forest", "Desert"}, function(value) print(value) end)
+    Section:NewButton("Start", "Start selected feature", function() print("Start:", Selection:GetValue()) end)
     Section:NewButton("Example", "Run example", function() print("clicked") end)
     Section:NewToggle("Enabled", false, function(value) print(value) end)
 ]=]
@@ -165,6 +167,45 @@ function Library.CreateLib(title, themeName, settings)
                 item.MouseLeave:Connect(function() tween(item, {BackgroundColor3 = t.Panel}) end)
                 item.MouseButton1Click:Connect(function() if callback then callback() end end); return item
             end
+            function Section:NewDropdown(value, options, callback)
+                options = options or {}
+                local selected = options[1]
+                local opened = false
+                local holder = make("Frame", {Size = UDim2.new(1,-4,0,37), BackgroundTransparency = 1}, page)
+                local selectButton = make("TextButton", {Size = UDim2.new(1,0,0,37), BackgroundColor3 = t.Panel,
+                    BackgroundTransparency = .18, Text = "", AutoButtonColor = false}, holder)
+                round(selectButton, 6); make("UIStroke", {Color = t.Line, Transparency = .45}, selectButton)
+                local nameLabel = label(selectButton, value, 12, t.Text, Enum.Font.GothamSemibold)
+                nameLabel.Position = UDim2.fromOffset(12,0); nameLabel.Size = UDim2.new(.52,0,1,0)
+                local choiceLabel = label(selectButton, tostring(selected or "Select..."), 12, t.Muted)
+                choiceLabel.Position = UDim2.new(.52,0,0,0); choiceLabel.Size = UDim2.new(.43,0,1,0); choiceLabel.TextXAlignment = Enum.TextXAlignment.Right
+                local arrow = label(selectButton, "▾", 15, t.Accent2, Enum.Font.GothamBold)
+                arrow.Position = UDim2.new(1,-25,0,0); arrow.Size = UDim2.fromOffset(18,37); arrow.TextXAlignment = Enum.TextXAlignment.Center
+                local optionsFrame = make("Frame", {Position = UDim2.fromOffset(0,40), Size = UDim2.new(1,0,0,0),
+                    BackgroundColor3 = t.PanelDark, BackgroundTransparency = .03, Visible = false, ZIndex = 20}, holder)
+                round(optionsFrame, 6); make("UIListLayout", {Padding = UDim.new(0,2)}, optionsFrame)
+                local function closeMenu() opened = false; optionsFrame.Visible = false; arrow.Text = "▾" end
+                for _, option in ipairs(options) do
+                    local optionButton = make("TextButton", {Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1,
+                        Text = tostring(option), TextColor3 = t.Text, TextSize = 11, Font = Enum.Font.Gotham,
+                        TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, ZIndex = 21}, optionsFrame)
+                    optionButton.MouseButton1Click:Connect(function()
+                        selected = option; choiceLabel.Text = tostring(option); closeMenu()
+                        if callback then callback(selected) end
+                    end)
+                end
+                optionsFrame.Size = UDim2.new(1,0,0,math.min(#options * 32, 128))
+                selectButton.MouseButton1Click:Connect(function()
+                    opened = not opened; optionsFrame.Visible = opened; arrow.Text = opened and "▴" or "▾"
+                end)
+                local selection = {}
+                function selection:GetValue() return selected end
+                function selection:SetValue(option)
+                    for _, item in ipairs(options) do if item == option then selected = option; choiceLabel.Text = tostring(option); break end end
+                end
+                return selection
+            end
+            Section.NewSelection = Section.NewDropdown
             function Section:NewToggle(value, default, callback)
                 local enabled = default == true
                 local row = make("TextButton", {Size = UDim2.new(1,-4,0,37), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, page)
