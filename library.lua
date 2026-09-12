@@ -5,7 +5,7 @@
     Usage:
     local Library = loadstring(game:HttpGet("YOUR_RAW_URL/golo_library.lua"))()
     local Window = Library.CreateLib("IkannHU", "DarkTheme", {
-        BackgroundImage = "rbxassetid://1234567890",
+        BackgroundImage = "rbxassetid://5252447904",
         BackgroundTransparency = 0.45,
         Subtitle = "custom.roblox",
         StatusText = "Keyless",
@@ -82,8 +82,8 @@ function Library.CreateLib(title, themeName, settings)
         Name = "Background",
         Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = Color3.fromRGB(45, 27, 65),
-        Image = settings.BackgroundImage or "",
-        ImageTransparency = (settings.BackgroundImage and settings.BackgroundImage ~= "") and 0 or 1,
+        Image = (settings.BackgroundImage and settings.BackgroundImage ~= "") and settings.BackgroundImage or "rbxassetid://5252447904",
+        ImageTransparency = 0,
         ScaleType = Enum.ScaleType.Crop,
         BorderSizePixel = 0,
         ZIndex = 0,
@@ -119,12 +119,8 @@ function Library.CreateLib(title, themeName, settings)
 
     local sidebar = make("Frame", {Position = UDim2.fromOffset(0,60), Size = UDim2.new(0,150,1,-60),
         BackgroundColor3 = t.PanelDark, BackgroundTransparency = .28, BorderSizePixel = 0}, window)
-    local donate = make("TextButton", {Position = UDim2.fromOffset(14,11), Size = UDim2.new(1,-28,0,31),
-        BackgroundTransparency = 1, Text = "Donate", TextColor3 = t.Text, TextSize = 12,
-        Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false}, sidebar)
-    local feature = label(sidebar, "Features:", 11, t.Muted, Enum.Font.GothamBold)
-    feature.Position = UDim2.fromOffset(15,58); feature.Size = UDim2.new(1,-30,0,18)
-    local tabHolder = make("Frame", {Position = UDim2.fromOffset(8,82), Size = UDim2.new(1,-16,1,-92), BackgroundTransparency = 1}, sidebar)
+    -- Sidebar hanya menampilkan tab yang dibuat oleh pengguna.
+    local tabHolder = make("Frame", {Position = UDim2.fromOffset(8,14), Size = UDim2.new(1,-16,1,-24), BackgroundTransparency = 1}, sidebar)
     make("UIListLayout", {Padding = UDim.new(0,5), SortOrder = Enum.SortOrder.LayoutOrder}, tabHolder)
     local content = make("Frame", {Position = UDim2.fromOffset(150,60), Size = UDim2.new(1,-150,1,-60), BackgroundTransparency = 1}, window)
 
