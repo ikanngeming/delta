@@ -67,6 +67,15 @@ function Library.CreateLib(title, themeName, settings)
     local gui = make("ScreenGui", {Name = "GoloUI", ResetOnSpawn = false, IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling}, player.PlayerGui)
 
+    local window = make("Frame", {Name = "Window", AnchorPoint = Vector2.new(.5, .5),
+        Position = UDim2.fromScale(.5, .5), Size = UDim2.fromOffset(550, 327),
+        BackgroundColor3 = t.PanelDark, BackgroundTransparency = .25, BorderSizePixel = 0,
+        ClipsDescendants = true}, gui)
+    round(window, 9)
+    make("UIStroke", {Color = t.Line, Transparency = .25}, window)
+
+    -- Background sengaja menjadi child dari Window, bukan ScreenGui,
+    -- sehingga hanya mengisi area panel dan ikut terpotong oleh rounded corner.
     local background = make("ImageLabel", {
         Name = "Background",
         Size = UDim2.fromScale(1, 1),
@@ -75,21 +84,16 @@ function Library.CreateLib(title, themeName, settings)
         ImageTransparency = (settings.BackgroundImage and settings.BackgroundImage ~= "") and 0 or 1,
         ScaleType = Enum.ScaleType.Crop,
         BorderSizePixel = 0,
-    }, gui)
+        ZIndex = 0,
+    }, window)
     make("Frame", {
         Name = "BackgroundOverlay",
         Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = settings.OverlayColor or Color3.fromRGB(57, 28, 82),
         BackgroundTransparency = settings.BackgroundTransparency or .45,
         BorderSizePixel = 0,
-    }, gui)
-
-    local window = make("Frame", {Name = "Window", AnchorPoint = Vector2.new(.5, .5),
-        Position = UDim2.fromScale(.5, .5), Size = UDim2.fromOffset(550, 327),
-        BackgroundColor3 = t.PanelDark, BackgroundTransparency = .25, BorderSizePixel = 0,
-        ClipsDescendants = true}, gui)
-    round(window, 9)
-    make("UIStroke", {Color = t.Line, Transparency = .25}, window)
+        ZIndex = 1,
+    }, window)
 
     local header = make("Frame", {Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = t.PanelDark,
         BackgroundTransparency = .12, BorderSizePixel = 0}, window)
