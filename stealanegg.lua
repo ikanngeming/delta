@@ -56,7 +56,7 @@ home:CreateDropdown({
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-Tab:CreateSlider({
+home:CreateSlider({
     Name = "Speed",
     Range = {16, 7000},
     Increment = 1,
