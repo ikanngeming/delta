@@ -52,3 +52,17 @@ home:CreateDropdown({
         end
     end,
 })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+home:CreateToggle({
+    Name = "Speed",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(Value)
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        humanoid.WalkSpeed = Value and 700 or 16
+    end,
+})
