@@ -56,13 +56,19 @@ home:CreateDropdown({
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-home:CreateToggle({
+Tab:CreateSlider({
     Name = "Speed",
-    CurrentValue = false,
-    Flag = "SpeedToggle",
+    Range = {16, 7000},
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
     Callback = function(Value)
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:WaitForChild("Humanoid")
-        humanoid.WalkSpeed = Value and 700 or 16
+        local character = player.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            humanoid.WalkSpeed = Value
+        end
     end,
 })
