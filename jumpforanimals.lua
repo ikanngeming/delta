@@ -15,6 +15,8 @@ local Home = Window:CreateTab({
     Name = "🏠 Home"
 })
 
+local StagesFolder = Workspace:WaitForChild("Stages")
+
 local SelectedStage = nil
 local SelectedEgg = nil
 local SelectedTarget = nil
@@ -45,17 +47,15 @@ local function TeleportTo(Target)
     local Success, Error = pcall(function()
         if Target:IsA("BasePart") then
             Character:PivotTo(
-                Target.CFrame + Vector3.new(0, 4, 0)
+                Target.CFrame + Vector3.new(0, 5, 0)
             )
-
         elseif Target:IsA("Model") then
             Character:PivotTo(
-                Target:GetPivot() + Vector3.new(0, 4, 0)
+                Target:GetPivot() + Vector3.new(0, 5, 0)
             )
-
         elseif Target:IsA("CFrameValue") then
             Character:PivotTo(
-                Target.Value + Vector3.new(0, 4, 0)
+                Target.Value + Vector3.new(0, 5, 0)
             )
         end
     end)
@@ -68,54 +68,14 @@ local function TeleportTo(Target)
     return true
 end
 
-local function CollectStages()
-    StageTargets = {}
-    StageOptions = {}
-
-    for _, Object in ipairs(Workspace:GetDescendants()) do
-        if Object:IsA("Folder") or Object:IsA("Model") then
-            local Name = Object.Name
-
-            if string.find(string.lower(Name), "stage") then
-                if not StageTargets[Name] then
-                    StageTargets[Name] = Object
-                    table.insert(StageOptions, Name)
-                end
-            end
-        end
+for _, Stage in ipairs(StagesFolder:GetChildren()) do
+    if Stage:IsA("Folder") or Stage:IsA("Model") then
+        StageTargets[Stage.Name] = Stage
+        table.insert(StageOptions, Stage.Name)
     end
-
-    table.sort(StageOptions)
 end
 
-local function CollectEggs(Stage)
-    EggTargets = {}
-    EggOptions = {}
-
-    if not Stage then
-        return
-    end
-
-    for _, Object in ipairs(Stage:GetDescendants()) do
-        if Object:IsA("BasePart")
-            or Object:IsA("Model")
-            or Object:IsA("CFrameValue") then
-
-            local Name = Object.Name
-
-            if string.find(string.lower(Name), "egg") then
-                if not EggTargets[Name] then
-                    EggTargets[Name] = Object
-                    table.insert(EggOptions, Name)
-                end
-            end
-        end
-    end
-
-    table.sort(EggOptions)
-end
-
-CollectStages()
+table.sort(StageOptions)
 
 local StageDropdown = Home:CreateDropdown({
     Name = "Pilih Stage",
@@ -129,35 +89,50 @@ local StageDropdown = Home:CreateDropdown({
 
         SelectedEgg = nil
         SelectedTarget = nil
+        EggTargets = {}
+        EggOptions = {}
 
-        if not SelectedStage or SelectedStage == "" then
+        if not SelectedStage then
             return
         end
 
         local Stage = StageTargets[SelectedStage]
 
         if not Stage then
+            return
+        end
+
+        local SpawnedEggs = Stage:FindFirstChild("SpawnedEggs")
+
+        if not SpawnedEggs then
             Rayfield:Notify({
-                Title = "Stage",
-                Content = "Stage tidak ditemukan.",
+                Title = "Egg",
+                Content = "SpawnedEggs tidak ditemukan di " .. SelectedStage,
                 Duration = 4
             })
             return
         end
 
-        CollectEggs(Stage)
+        for Index, Egg in ipairs(SpawnedEggs:GetChildren()) do
+            if Egg:IsA("Model")
+                or Egg:IsA("BasePart")
+                or Egg:IsA("CFrameValue") then
+
+                local DisplayName = Egg.Name .. " #" .. Index
+
+                EggTargets[DisplayName] = Egg
+                table.insert(EggOptions, DisplayName)
+            end
+        end
+
+        table.sort(EggOptions)
 
         if #EggOptions == 0 then
             Rayfield:Notify({
                 Title = "Egg",
-                Content = "Tidak ada Egg di " .. tostring(SelectedStage),
+                Content = "Tidak ada Egg di " .. SelectedStage,
                 Duration = 4
             })
-
-            if EggDropdown then
-                EggDropdown:Refresh({}, true)
-            end
-
             return
         end
 
@@ -171,8 +146,8 @@ local StageDropdown = Home:CreateDropdown({
                 MultipleOptions = false,
                 Flag = "SelectedEgg",
 
-                Callback = function(Value)
-                    SelectedEgg = Value[1] or Value
+                Callback = function(EggValue)
+                    SelectedEgg = EggValue[1] or EggValue
 
                     if SelectedEgg then
                         SelectedTarget = EggTargets[SelectedEgg]
@@ -185,7 +160,7 @@ local StageDropdown = Home:CreateDropdown({
 
         Rayfield:Notify({
             Title = "Stage Dipilih",
-            Content = tostring(SelectedStage) .. " memiliki " .. tostring(#EggOptions) .. " Egg.",
+            Content = SelectedStage .. " memiliki " .. #EggOptions .. " Egg",
             Duration = 3
         })
     end
@@ -218,8 +193,14 @@ Home:CreateButton({
         if Success then
             Rayfield:Notify({
                 Title = "Teleport Berhasil",
-                Content = "Menuju " .. tostring(SelectedEgg),
+                Content = "Menuju " .. SelectedEgg,
                 Duration = 3
+            })
+        else
+            Rayfield:Notify({
+                Title = "Teleport",
+                Content = "Teleport gagal.",
+                Duration = 4
             })
         end
     end
