@@ -1,212 +1,214 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
+-- BerakHUB Teleport - versi diagnostik
+-- Jalankan seluruh file ini, jangan termasuk tanda ``` jika menyalin dari chat.
 
-local Window = Rayfield:CreateWindow({
-    Name = "BerakHUB",
-    Subtitle = "By Ikann",
-    ShowText = "BerakHUB",
-    Theme = "Amethyst",
-    ToggleUIKeybind = "K"
-})
+local function Debug(Message)
+    print("[BerakHUB] " .. tostring(Message))
+end
 
-local Home = Window:CreateTab({
-    Name = "🏠 Home"
-})
+local Source = game:HttpGet("https://sirius.menu/gen2")
+local Loader = loadstring(Source)
+if not Loader then
+    warn("[BerakHUB] Rayfield gagal di-load: loadstring nil")
+    return
+end
+
+local Ok, Rayfield = pcall(Loader)
+if not Ok or not Rayfield then
+    warn("[BerakHUB] Rayfield gagal di-load:", Rayfield)
+    return
+end
+
+local OkWindow, Window = pcall(function()
+    return Rayfield:CreateWindow({
+        name = "BerakHUB",
+        subtitle = "Teleport",
+        showText = "BerakHUB",
+        theme = "Default",
+        toggleUIKeybind = "K"
+    })
+end)
+
+if not OkWindow or not Window then
+    warn("[BerakHUB] Window gagal dibuat:", Window)
+    return
+end
+
+local OkTab, Home = pcall(function()
+    return Window:CreateTab({
+        name = "Home"
+    })
+end)
+
+if not OkTab or not Home then
+    warn("[BerakHUB] Tab gagal dibuat:", Home)
+    return
+end
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Player = Players.LocalPlayer
 
+local Stages = {}
+local StageNames = {}
+local Eggs = {}
+local EggNames = {}
 local SelectedStage
 local SelectedEgg
-local SelectedTarget
-
-local StageTargets = {}
-local StageOptions = {}
-local EggTargets = {}
-local EggOptions = {}
+local StageDropdown
 local EggDropdown
 
-local function GetCharacter()
-    return Player.Character or Player.CharacterAdded:Wait()
+local function Notify(Title, Content)
+    pcall(function()
+        Rayfield:Notify({
+            title = Title,
+            content = Content,
+            duration = 4
+        })
+    end)
 end
 
-local function GetTargetCFrame(Target)
-    if not Target or not Target.Parent then
+local function IsTarget(Object)
+    return Object:IsA("BasePart") or Object:IsA("Model") or Object:IsA("Folder") or Object:IsA("CFrameValue")
+end
+
+local function GetCFrame(Object)
+    if not Object or not Object.Parent then
         return nil
     end
-
-    if Target:IsA("BasePart") then
-        return Target.CFrame
-    elseif Target:IsA("Model") then
-        return Target:GetPivot()
-    elseif Target:IsA("CFrameValue") then
-        return Target.Value
+    if Object:IsA("BasePart") then
+        return Object.CFrame
+    elseif Object:IsA("Model") then
+        return Object:GetPivot()
+    elseif Object:IsA("CFrameValue") then
+        return Object.Value
     end
-
     return nil
 end
 
-local function TeleportTo(Target)
-    local TargetCFrame = GetTargetCFrame(Target)
-    if not TargetCFrame then
-        return false, "Target teleport tidak valid atau sudah dihapus."
+local function Teleport(Object)
+    local TargetCFrame = GetCFrame(Object)
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+    if not TargetCFrame or not Character then
+        return false
     end
-
-    local Character = GetCharacter()
-    if not Character or not Character.Parent then
-        return false, "Character belum tersedia."
-    end
-
-    local Success, ErrorMessage = pcall(function()
-        Character:PivotTo(TargetCFrame + Vector3.new(0, 4, 0))
+    local Ok = pcall(function()
+        Character:PivotTo(TargetCFrame + Vector3.new(0, 5, 0))
     end)
+    return Ok
+end
 
-    if not Success then
-        warn("Teleport gagal:", ErrorMessage)
-        return false, tostring(ErrorMessage)
+local function ReadValue(Value)
+    if type(Value) == "table" then
+        return Value[1]
     end
-
-    return true
+    return Value
 end
 
-local function IsTeleportObject(Object)
-    return Object:IsA("Folder")
-        or Object:IsA("Model")
-        or Object:IsA("BasePart")
-        or Object:IsA("CFrameValue")
-end
-
-local function CollectStages()
-    StageTargets = {}
-    StageOptions = {}
+local function Scan()
+    Stages = {}
+    StageNames = {}
+    Eggs = {}
+    EggNames = {}
 
     for _, Object in ipairs(Workspace:GetDescendants()) do
-        if IsTeleportObject(Object) then
-            local ObjectName = tostring(Object.Name)
-            if string.find(string.lower(ObjectName), "stage", 1, true)
-                and not StageTargets[ObjectName] then
-                StageTargets[ObjectName] = Object
-                table.insert(StageOptions, ObjectName)
+        if IsTarget(Object) then
+            local Name = tostring(Object.Name)
+            local Lower = string.lower(Name)
+
+            -- Stage/level/checkpoint dipisahkan agar nama game lebih fleksibel.
+            if string.find(Lower, "stage", 1, true)
+                or string.find(Lower, "level", 1, true)
+                or string.find(Lower, "checkpoint", 1, true) then
+                if not Stages[Name] then
+                    Stages[Name] = Object
+                    table.insert(StageNames, Name)
+                end
+            end
+
+            if string.find(Lower, "egg", 1, true)
+                or string.find(Lower, "telur", 1, true) then
+                if not Eggs[Name] then
+                    Eggs[Name] = Object
+                    table.insert(EggNames, Name)
+                end
             end
         end
     end
 
-    table.sort(StageOptions)
-end
+    table.sort(StageNames)
+    table.sort(EggNames)
+    Debug("Stage/Level ditemukan: " .. #StageNames)
+    Debug("Egg ditemukan: " .. #EggNames)
 
-local function CollectEggs(Stage)
-    EggTargets = {}
-    EggOptions = {}
-
-    if not Stage then
-        return
+    if StageDropdown then
+        pcall(function() StageDropdown:Refresh(StageNames, true) end)
+    end
+    if EggDropdown then
+        pcall(function() EggDropdown:Refresh(EggNames, true) end)
     end
 
-    -- Sertakan Stage sendiri jika ternyata object-nya adalah egg.
-    local Objects = {Stage}
-    for _, Object in ipairs(Stage:GetDescendants()) do
-        table.insert(Objects, Object)
-    end
-
-    for _, Object in ipairs(Objects) do
-        if IsTeleportObject(Object) then
-            local ObjectName = tostring(Object.Name)
-            if string.find(string.lower(ObjectName), "egg", 1, true)
-                and not EggTargets[ObjectName] then
-                EggTargets[ObjectName] = Object
-                table.insert(EggOptions, ObjectName)
-            end
-        end
-    end
-
-    table.sort(EggOptions)
+    Notify("Scan selesai", "Stage: " .. #StageNames .. " | Egg: " .. #EggNames)
 end
 
-local function Notify(Title, Content, Duration)
-    Rayfield:Notify({
-        Title = Title,
-        Content = Content,
-        Duration = Duration or 4
-    })
-end
-
-CollectStages()
-
-if #StageOptions == 0 then
-    Notify("BerakHUB", "Stage tidak ditemukan di Workspace.", 5)
-else
-    Notify("BerakHUB", "Ditemukan " .. #StageOptions .. " Stage.", 3)
-end
-
-Home:CreateDropdown({
-    Name = "Pilih Stage",
-    Options = StageOptions,
-    CurrentOption = {},
-    MultipleOptions = false,
-    Callback = function(Value)
-        SelectedStage = type(Value) == "table" and Value[1] or Value
-        SelectedEgg = nil
-        SelectedTarget = nil
-        EggTargets = {}
-        EggOptions = {}
-
-        if not SelectedStage then
-            if EggDropdown then
-                EggDropdown:Refresh({}, true)
-            end
-            return
-        end
-
-        local Stage = StageTargets[SelectedStage]
-        if not Stage then
-            Notify("Error", "Object Stage tidak ditemukan.")
-            return
-        end
-
-        CollectEggs(Stage)
-
-        if EggDropdown then
-            EggDropdown:Refresh(EggOptions, true)
-        end
-
-        if #EggOptions == 0 then
-            Notify("Egg", "Tidak ada Egg di " .. tostring(SelectedStage), 4)
-        else
-            Notify("Egg", "Ditemukan " .. #EggOptions .. " Egg.", 3)
-        end
+-- Elemen UI dibuat sebelum scan supaya tetap muncul walaupun object tidak ditemukan.
+StageDropdown = Home:CreateDropdown({
+    name = "Pilih Stage / Level",
+    options = {},
+    currentOption = {},
+    multipleOptions = false,
+    callback = function(Value)
+        SelectedStage = ReadValue(Value)
     end
 })
 
 EggDropdown = Home:CreateDropdown({
-    Name = "Pilih Egg",
-    Options = {},
-    CurrentOption = {},
-    MultipleOptions = false,
-    Callback = function(Value)
-        SelectedEgg = type(Value) == "table" and Value[1] or Value
-        SelectedTarget = SelectedEgg and EggTargets[SelectedEgg] or nil
+    name = "Pilih Egg",
+    options = {},
+    currentOption = {},
+    multipleOptions = false,
+    callback = function(Value)
+        SelectedEgg = ReadValue(Value)
     end
 })
 
--- Tombol teleport dibuat setelah dropdown agar selalu tampil di tab Home.
 Home:CreateButton({
-    Name = "Teleport ke Egg",
-    Callback = function()
-        if not SelectedStage then
-            Notify("Teleport", "Pilih Stage terlebih dahulu.")
+    name = "Refresh / Cari Target",
+    callback = Scan
+})
+
+Home:CreateButton({
+    name = "Teleport ke Stage",
+    callback = function()
+        if not SelectedStage or not Stages[SelectedStage] then
+            Notify("Teleport", "Pilih Stage/Level terlebih dahulu.")
             return
         end
+        if Teleport(Stages[SelectedStage]) then
+            Notify("Berhasil", "Teleport ke " .. SelectedStage)
+        else
+            Notify("Gagal", "Stage tidak punya posisi teleport.")
+        end
+    end
+})
 
-        if not SelectedEgg or not SelectedTarget then
+Home:CreateButton({
+    name = "Teleport ke Egg",
+    callback = function()
+        if not SelectedEgg or not Eggs[SelectedEgg] then
             Notify("Teleport", "Pilih Egg terlebih dahulu.")
             return
         end
-
-        local Success, ErrorMessage = TeleportTo(SelectedTarget)
-        if Success then
-            Notify("Teleport Berhasil", "Menuju " .. tostring(SelectedEgg), 3)
+        if Teleport(Eggs[SelectedEgg]) then
+            Notify("Berhasil", "Teleport ke " .. SelectedEgg)
         else
-            Notify("Teleport Gagal", ErrorMessage or "Target tidak valid.", 4)
+            Notify("Gagal", "Egg tidak punya posisi teleport.")
         end
     end
 })
+
+Home:CreateParagraph({
+    title = "Cara pakai",
+    content = "Klik Refresh / Cari Target setelah map selesai loading. Jika UI tidak muncul, buka Developer Console (F9) dan cari baris [BerakHUB]."
+})
+
+Scan()
