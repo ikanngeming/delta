@@ -1,6 +1,6 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
 
-local window = Rayfield:CreateWindow({
+local Window = Rayfield:CreateWindow({
     Name = "BerakHUB",
     Subtitle = "By Ikann",
     SidebarLayout = true,
@@ -9,197 +9,218 @@ local window = Rayfield:CreateWindow({
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local player = Players.LocalPlayer
+local Player = Players.LocalPlayer
 
-local home = window:CreateTab({
+local Home = Window:CreateTab({
     Name = "🏠 Home"
 })
 
-local function getCharacter()
-    return player.Character or player.CharacterAdded:Wait()
+local SelectedStage = nil
+local SelectedEgg = nil
+local SelectedTarget = nil
+
+local StageTargets = {}
+local StageOptions = {}
+
+local EggTargets = {}
+local EggOptions = {}
+
+local EggDropdown = nil
+
+local function GetCharacter()
+    return Player.Character or Player.CharacterAdded:Wait()
 end
 
-local function teleportTo(target)
-    if not target then
+local function TeleportTo(Target)
+    if not Target then
         return false
     end
 
-    local character = getCharacter()
+    local Character = GetCharacter()
 
-    if not character then
+    if not Character then
         return false
     end
 
-    local success, result = pcall(function()
-        if target:IsA("BasePart") then
-            character:PivotTo(target.CFrame + Vector3.new(0, 4, 0))
-        elseif target:IsA("Model") then
-            character:PivotTo(target:GetPivot() + Vector3.new(0, 4, 0))
-        elseif target:IsA("CFrameValue") then
-            character:PivotTo(target.Value + Vector3.new(0, 4, 0))
+    local Success, Error = pcall(function()
+        if Target:IsA("BasePart") then
+            Character:PivotTo(
+                Target.CFrame + Vector3.new(0, 4, 0)
+            )
+
+        elseif Target:IsA("Model") then
+            Character:PivotTo(
+                Target:GetPivot() + Vector3.new(0, 4, 0)
+            )
+
+        elseif Target:IsA("CFrameValue") then
+            Character:PivotTo(
+                Target.Value + Vector3.new(0, 4, 0)
+            )
         end
     end)
 
-    if not success then
-        warn("Teleport gagal:", result)
+    if not Success then
+        warn("Teleport gagal:", Error)
         return false
     end
 
     return true
 end
 
-local function collectStages()
-    local stageTargets = {}
-    local stageOptions = {}
+local function CollectStages()
+    StageTargets = {}
+    StageOptions = {}
 
-    for _, object in ipairs(Workspace:GetDescendants()) do
-        if object:IsA("Folder") or object:IsA("Model") then
-            local name = object.Name
+    for _, Object in ipairs(Workspace:GetDescendants()) do
+        if Object:IsA("Folder") or Object:IsA("Model") then
+            local Name = Object.Name
 
-            if string.find(string.lower(name), "stage") then
-                if not stageTargets[name] then
-                    stageTargets[name] = object
-                    table.insert(stageOptions, name)
+            if string.find(string.lower(Name), "stage") then
+                if not StageTargets[Name] then
+                    StageTargets[Name] = Object
+                    table.insert(StageOptions, Name)
                 end
             end
         end
     end
 
-    table.sort(stageOptions)
-
-    return stageTargets, stageOptions
+    table.sort(StageOptions)
 end
 
-local function collectEggs(stage)
-    local eggTargets = {}
-    local eggOptions = {}
+local function CollectEggs(Stage)
+    EggTargets = {}
+    EggOptions = {}
 
-    if not stage then
-        return eggTargets, eggOptions
+    if not Stage then
+        return
     end
 
-    for _, object in ipairs(stage:GetDescendants()) do
-        if object:IsA("BasePart")
-            or object:IsA("Model")
-            or object:IsA("CFrameValue") then
+    for _, Object in ipairs(Stage:GetDescendants()) do
+        if Object:IsA("BasePart")
+            or Object:IsA("Model")
+            or Object:IsA("CFrameValue") then
 
-            local name = object.Name
+            local Name = Object.Name
 
-            if string.find(string.lower(name), "egg") then
-                if not eggTargets[name] then
-                    eggTargets[name] = object
-                    table.insert(eggOptions, name)
+            if string.find(string.lower(Name), "egg") then
+                if not EggTargets[Name] then
+                    EggTargets[Name] = Object
+                    table.insert(EggOptions, Name)
                 end
             end
         end
     end
 
-    table.sort(eggOptions)
-
-    return eggTargets, eggOptions
+    table.sort(EggOptions)
 end
 
-local selectedStageName = nil
-local selectedEggName = nil
-local selectedTarget = nil
+CollectStages()
 
-local eggTargets = {}
-local eggOptions = {}
-local eggDropdown = nil
+local StageDropdown = Home:CreateDropdown({
+    Name = "Pilih Stage",
+    Options = StageOptions,
+    CurrentOption = {},
+    MultipleOptions = false,
+    Flag = "SelectedStage",
 
-local stageTargets, stageOptions = collectStages()
+    Callback = function(Value)
+        SelectedStage = Value[1] or Value
 
-if #stageOptions > 0 then
-    selectedStageName = stageOptions[1]
+        SelectedEgg = nil
+        SelectedTarget = nil
 
-    eggTargets, eggOptions =
-        collectEggs(stageTargets[selectedStageName])
+        if not SelectedStage or SelectedStage == "" then
+            return
+        end
 
-    selectedEggName = eggOptions[1]
+        local Stage = StageTargets[SelectedStage]
 
-    if selectedEggName then
-        selectedTarget = eggTargets[selectedEggName]
+        if not Stage then
+            Rayfield:Notify({
+                Title = "Stage",
+                Content = "Stage tidak ditemukan.",
+                Duration = 4
+            })
+            return
+        end
+
+        CollectEggs(Stage)
+
+        if #EggOptions == 0 then
+            Rayfield:Notify({
+                Title = "Egg",
+                Content = "Tidak ada Egg di " .. tostring(SelectedStage),
+                Duration = 4
+            })
+
+            if EggDropdown then
+                EggDropdown:Refresh({}, true)
+            end
+
+            return
+        end
+
+        if EggDropdown then
+            EggDropdown:Refresh(EggOptions, true)
+        else
+            EggDropdown = Home:CreateDropdown({
+                Name = "Pilih Egg",
+                Options = EggOptions,
+                CurrentOption = {},
+                MultipleOptions = false,
+                Flag = "SelectedEgg",
+
+                Callback = function(Value)
+                    SelectedEgg = Value[1] or Value
+
+                    if SelectedEgg then
+                        SelectedTarget = EggTargets[SelectedEgg]
+                    else
+                        SelectedTarget = nil
+                    end
+                end
+            })
+        end
+
+        Rayfield:Notify({
+            Title = "Stage Dipilih",
+            Content = tostring(SelectedStage) .. " memiliki " .. tostring(#EggOptions) .. " Egg.",
+            Duration = 3
+        })
     end
+})
 
-    home:CreateDropdown({
-        Name = "Pilih Stage",
-        Options = stageOptions,
-        CurrentOption = {selectedStageName},
-        MultipleOptions = false,
-        Flag = "SelectedStage",
+Home:CreateButton({
+    Name = "Teleport ke Egg",
 
-        Callback = function(selected)
-            selectedStageName = selected[1] or selected
+    Callback = function()
+        if not SelectedStage then
+            Rayfield:Notify({
+                Title = "Teleport",
+                Content = "Pilih Stage terlebih dahulu.",
+                Duration = 4
+            })
+            return
+        end
 
-            eggTargets, eggOptions =
-                collectEggs(stageTargets[selectedStageName])
+        if not SelectedEgg or not SelectedTarget then
+            Rayfield:Notify({
+                Title = "Teleport",
+                Content = "Pilih Egg terlebih dahulu.",
+                Duration = 4
+            })
+            return
+        end
 
-            selectedEggName = eggOptions[1]
+        local Success = TeleportTo(SelectedTarget)
 
-            if selectedEggName then
-                selectedTarget = eggTargets[selectedEggName]
-            else
-                selectedTarget = nil
-            end
-
-            if eggDropdown then
-                eggDropdown:Refresh(eggOptions, true)
-            end
-        end,
-    })
-
-    eggDropdown = home:CreateDropdown({
-        Name = "Pilih Egg",
-        Options = eggOptions,
-        CurrentOption = selectedEggName and {selectedEggName} or {},
-        MultipleOptions = false,
-        Flag = "SelectedEgg",
-
-        Callback = function(selected)
-            selectedEggName = selected[1] or selected
-
-            if selectedEggName then
-                selectedTarget = eggTargets[selectedEggName]
-            else
-                selectedTarget = nil
-            end
-        end,
-    })
-
-    home:CreateButton({
-        Name = "Teleport ke Egg",
-
-        Callback = function()
-            if not selectedTarget then
-                Rayfield:Notify({
-                    Title = "Teleport",
-                    Content = "Silakan pilih egg terlebih dahulu.",
-                    Duration = 5,
-                })
-                return
-            end
-
-            local success = teleportTo(selectedTarget)
-
-            if success then
-                Rayfield:Notify({
-                    Title = "Teleport",
-                    Content = "Berhasil teleport ke " .. tostring(selectedEggName),
-                    Duration = 3,
-                })
-            else
-                Rayfield:Notify({
-                    Title = "Teleport",
-                    Content = "Gagal melakukan teleport.",
-                    Duration = 5,
-                })
-            end
-        end,
-    })
-else
-    Rayfield:Notify({
-        Title = "Teleport",
-        Content = "Tidak ada Stage yang ditemukan.",
-        Duration = 5,
-    })
-end
+        if Success then
+            Rayfield:Notify({
+                Title = "Teleport Berhasil",
+                Content = "Menuju " .. tostring(SelectedEgg),
+                Duration = 3
+            })
+        end
+    end
+})
