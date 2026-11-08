@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">BerakHUB — Ikann</title>
+  <desc id="desc">Logo gaming modern berwarna midnight navy dan teal untuk BerakHUB, dibuat oleh Ikann.</desc>
+  <defs>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6af3df"/>
+      <stop offset="1" stop-color="#20bcae"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#172b37"/>
+      <stop offset="1" stop-color="#0a151e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="42" fill="#08121a"/>
+  <g transform="translate(58 42)">
+    <rect width="276" height="276" rx="62" fill="url(#panel)" stroke="#24515a" stroke-width="5"/>
+    <path d="M70 54h87c54 0 79 27 79 67 0 28-15 47-39 56 31 8 49 30 49 63 0 49-34 78-91 78H70V54zm61 51v51h23c17 0 26-9 26-26 0-16-9-25-27-25h-22zm0 100v61h29c20 0 30-10 30-30 0-21-11-31-32-31h-27z" fill="url(#teal)" transform="translate(0 -4)"/>
+    <path d="M194 77l28 18-21 20" fill="none" stroke="#e3fff9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+    <circle cx="224" cy="224" r="11" fill="#e3fff9"/>
+  </g>
+  <text x="382" y="171" fill="#f0fbfa" font-family="DejaVu Sans, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="1">BerakHUB</text>
+  <rect x="386" y="202" width="132" height="7" rx="4" fill="url(#teal)"/>
+  <text x="386" y="270" fill="#8ca9b0" font-family="DejaVu Sans, Arial, sans-serif" font-size="33" font-weight="600" letter-spacing="7">IKANN EDITION</text>
+  <text x="1040" y="292" fill="#55727b" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="500" text-anchor="end">GAMING UI</text>
+</svg>
