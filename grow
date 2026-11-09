@@ -1,0 +1,56 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local toggleEvent = ReplicatedStorage:WaitForChild("ToggleAutoFarm")
+
+-- Buat ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoFarmGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Frame panel
+local frame = Instance.new("Frame")
+frame.Size = UDim2.fromOffset(180, 90)
+frame.Position = UDim2.new(0, 20, 0.5, -45)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true -- bisa digeser
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+-- Judul
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Auto Farm"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = frame
+
+-- Tombol toggle
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(1, -20, 0, 40)
+button.Position = UDim2.new(0, 10, 0, 40)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 16
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Parent = frame
+Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+
+-- Update tampilan sesuai status dari server
+local function refresh()
+	local on = player:GetAttribute("AutoFarm")
+	button.Text = on and "ON" or "OFF"
+	button.BackgroundColor3 = on and Color3.fromRGB(46, 160, 67) or Color3.fromRGB(180, 50, 50)
+end
+
+button.MouseButton1Click:Connect(function()
+	toggleEvent:FireServer()
+end)
+
+player:GetAttributeChangedSignal("AutoFarm"):Connect(refresh)
+refresh()
