@@ -1,10 +1,10 @@
-PAKET BERAKHUB — IKANN EDITION
+PAKET BERAKHUB — IKANN EDITION 1.2
 
 Isi paket:
-- BerakHUB_Ikann.lua: skrip dengan nama UI BerakHUB dan versi Ikann-Edition-1.1.
-- BerakHUB_Ikann_Logo.svg / .png: logo horizontal; SVG dapat diedit, PNG berukuran 2400 x 720.
-- BerakHUB_Ikann_Icon.svg / .png: ikon persegi; SVG dapat diedit, PNG berukuran 1024 x 1024.
+- BerakHUB_Ikann.lua: skrip yang diperbarui dari sumber terbaru; branding BerakHUB, tema midnight/teal, author Ikann.
+- BerakHUB_Ikann_Logo.svg / .png: logo horizontal.
+- BerakHUB_Ikann_Icon.svg / .png: ikon persegi.
 
-Logo dibuat secara manual sebagai grafis vektor, dengan palet midnight navy dan teal.
+Logo dibuat manual sebagai vektor. PNG harus diunggah sebagai aset Roblox untuk memperoleh asset ID; masukkan ID tersebut lewat opsi Icon jika ingin tampil di UI.
 
-Catatan skrip: sumber awal yang diberikan berakhir pada `return C`; bagian akhir skrip tampaknya terpotong sejak sumbernya. Logo lokal ini disertakan sebagai berkas gambar, tetapi belum diunggah sebagai aset Roblox. Untuk menampilkan gambar ini di Roblox, PNG harus diunggah dahulu agar memperoleh asset ID Roblox.
+Catatan: sumber yang diterima berakhir dengan `return C`. Kode ini menggunakan API khusus executor Roblox dan belum diverifikasi di lingkungan game.

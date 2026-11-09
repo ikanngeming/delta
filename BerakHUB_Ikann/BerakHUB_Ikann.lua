@@ -6,7 +6,7 @@ local BerakUI = (function()
     
         Basic usage:
     
-        local BerakUI = loadstring(readfile("BerakHUB_Ikann.lua"))()
+        local BerakUI = loadstring(readfile("BerakHUB_UI_AnimeDice.lua"))()
         local Library, Window = BerakUI:Create("My Game")
     
         local Main = Window:AddTab("Main", "home")
@@ -55,7 +55,7 @@ local BerakUI = (function()
     ]]
     
     local BerakHUBUI = {
-        Version = "Ikann-Edition-1.1",
+        Version = "Ikann-Edition-1.2",
         Logo = nil,
     }
     
@@ -1111,17 +1111,7 @@ local BerakUI = (function()
     
         if options.Icon ~= nil then self:SetLogo(options.Icon) end
     
-        if options.Icon == nil then
-            pcall(function()
-                if type(writefile) == "function" and type(getcustomasset) == "function" then
-                    local png = game:HttpGet("https://api.alicehub.web.id/alicehub-logo.png")
-                    if type(png) == "string" and png:sub(1, 4) == "\137PNG" then
-                        writefile("alicehub-logo.png", png)
-                        self:SetLogo(getcustomasset("alicehub-logo.png"))
-                    end
-                end
-            end)
-        end
+        -- Pass options.Icon after uploading the Ikann logo as a Roblox asset.
     
         local Library = buildBerakNativeLibrary({
             GuiName = options.GuiName or ("BerakHUB_" .. gameName:gsub("%W+", "") .. "_NativeUI"),
