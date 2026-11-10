@@ -6,7 +6,8 @@
     Urutan kerja:
       1. Jendela Rayfield Gen2 dibuka dulu (kalau gagal, muncul kotak error merah).
       2. Logika game dimuat dengan penangkap error.
-      3. Tab "Debug" menampilkan executor, PlaceId, kemampuan executor, dan error.
+      3. Tab "Debug" menampilkan executor, PlaceId, kemampuan executor, diagnostik
+         pencarian data game (ItemDB / Inventory / Punch), dan semua error.
 
     Buka/tutup menu: tombol bulat "B" (bisa digeser) atau pill Rayfield saat window disembunyikan.
 ]]
@@ -612,9 +613,67 @@ local BERAKHUB_LOGIC = [=[
     local WorldRemotes = ReplicatedStorage:FindFirstChild("WorldRemotes")
     local SetTileRemote = WorldRemotes and WorldRemotes:FindFirstChild("SetTile") or nil
     local TakeDropRemote = WorldRemotes and WorldRemotes:FindFirstChild("TakeDrop") or nil
-    local ItemDB = nil
-    pcall(function() ItemDB = require(Shared:FindFirstChild("ItemDB")) end)
-    if type(ItemDB) ~= "table" then ItemDB = {} end
+    -- Diagnostik pencarian data game (ditampilkan di tab Farm dan Debug)
+    local Diag = {
+        itemSource = "tidak ada", requireErr = {},
+        fnTotal = 0, fnLua = 0, fnGame = 0, consts = "?", punchBy = "-", srcSample = {},
+    }
+    -- Indeks item: id -> record. Struktur ItemDB dibaca fleksibel (key = id, atau field id),
+    -- jadi tetap jalan walau game memakai bentuk tabel yang sedikit berbeda.
+    local ItemIndex = {}
+    local function indexItems(root)
+        local added, seen = 0, {}
+        local function walk(t, depth)
+            if seen[t] or depth > 3 then return end
+            seen[t] = true
+            for k, v in pairs(t) do
+                if type(v) == "table" then
+                    if type(rawget(v, "name")) == "string" then
+                        local id = rawget(v, "id")
+                        if type(id) ~= "number" then id = tonumber(k) end
+                        if type(id) == "number" and ItemIndex[id] == nil then
+                            ItemIndex[id] = v
+                            added = added + 1
+                        end
+                    else
+                        walk(v, depth + 1)
+                    end
+                end
+            end
+        end
+        pcall(walk, root, 0)
+        return added
+    end
+    local ItemDB = setmetatable({}, { __index = function(_, id)
+        local v = ItemIndex[id]
+        if v == nil and type(id) == "string" then v = ItemIndex[tonumber(id)] end
+        return v
+    end })
+    local function tryRequireItems(mod, label)
+        local ok, res = pcall(require, mod)
+        if not ok then
+            Diag.requireErr[#Diag.requireErr + 1] = label .. ": " .. string.sub(tostring(res), 1, 70)
+            return 0
+        end
+        if type(res) ~= "table" then return 0 end
+        local n = indexItems(res)
+        if n > 0 then Diag.itemSource = "require " .. label end
+        return n
+    end
+    local function loadItemDB()
+        local m = Shared and Shared:FindFirstChild("ItemDB")
+        if m and tryRequireItems(m, "Shared.ItemDB") > 0 then return end
+        for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+            if d:IsA("ModuleScript") then
+                local nm = string.lower(d.Name)
+                if string.find(nm, "item", 1, true) or string.find(nm, "block", 1, true) then
+                    if tryRequireItems(d, d.Name) > 0 then return end
+                end
+            end
+        end
+    end
+    pcall(loadItemDB)
+    local function isRec(r) return type(r) == "table" and type(rawget(r, "name")) == "string" end
     local InventoryModule = nil
     pcall(function() InventoryModule = require(Shared:FindFirstChild("Inventory")) end)
     local NetOk, Net = pcall(require, Shared and Shared:FindFirstChild("Net"))
@@ -700,7 +759,29 @@ local BERAKHUB_LOGIC = [=[
         return true
     end
     
+    -- Skor kandidat punch tanpa filter nama script (cadangan kalau pencarian ketat gagal).
+    local function punchScore(fn)
+        if not getconsts then return 0 end
+        local ok, consts = pcall(getconsts, fn)
+        if not ok or type(consts) ~= "table" then return 0 end
+        local s = 0
+        for _, c in pairs(consts) do
+            if c == "Empty the Vending Machine first!" then s = s + 2
+            elseif c == "newCrack" or c == "HarvestProvider" or c == "punchReady" then s = s + 1 end
+        end
+        return s
+    end
+    local function isExecFn(fn)
+        if not isexecutorclosure then return false end
+        local ok, res = pcall(isexecutorclosure, fn)
+        return ok and res == true
+    end
+
     local function findRefs()
+        local fnList = {}
+        Diag.fnTotal, Diag.fnLua, Diag.fnGame, Diag.punchBy, Diag.srcSample = 0, 0, 0, "-", {}
+        Diag.consts = "tidak ada"
+        if getconsts then Diag.consts = "ada" end
         Refs.World, Refs.Inv, Refs.SetTile, Refs.State, Refs.Punch, Refs.Menu = nil, nil, nil, nil, nil, nil
         Refs.Gems = nil
         Refs.Hud = nil
@@ -712,6 +793,16 @@ local BERAKHUB_LOGIC = [=[
         for _, v in ipairs(getgc(true)) do
             local tv = type(v)
             if tv == "table" then
+                if next(ItemIndex) == nil then
+                    local ok, hit = pcall(function()
+                        local n = 0
+                        if isRec(rawget(v, 14)) or isRec(rawget(v, "14")) then n = n + 1 end
+                        if isRec(rawget(v, 2)) or isRec(rawget(v, "2")) then n = n + 1 end
+                        if isRec(rawget(v, 8)) or isRec(rawget(v, "8")) then n = n + 1 end
+                        return n >= 2
+                    end)
+                    if ok and hit and indexItems(v) > 0 then Diag.itemSource = "getgc" end
+                end
                 if not Refs.World then
                     local ok, isWorld = pcall(function()
                         return type(rawget(v, "fg")) == "table" and type(rawget(v, "bg")) == "table"
@@ -722,8 +813,9 @@ local BERAKHUB_LOGIC = [=[
                 end
                 if not Refs.Inv then
                     local ok, isInv = pcall(function()
-                        return getmetatable(v) == InventoryModule and type(rawget(v, "slots")) == "table"
-                            and rawget(v, "capacity") ~= nil
+                        if type(rawget(v, "slots")) ~= "table" or rawget(v, "capacity") == nil then return false end
+                        if InventoryModule ~= nil and getmetatable(v) == InventoryModule then return true end
+                        return type(v.count) == "function"
                     end)
                     if ok and isInv then Refs.Inv = v end
                 end
@@ -761,15 +853,61 @@ local BERAKHUB_LOGIC = [=[
                     end)
                     if ok and isP then table.insert(Refs.Particles, v) end
                 end
-            elseif tv == "function" and (not Refs.SetTile or not Refs.Punch) and isGameFn(v) then
-                if not Refs.SetTile and isSetTileFn(v) then
-                    Refs.SetTile = v
-                elseif not Refs.Punch and isPunchFn(v) then
-                    Refs.Punch = v
+            elseif tv == "function" and (not Refs.SetTile or not Refs.Punch) then
+                Diag.fnTotal = Diag.fnTotal + 1
+                local isLua = true
+                if islclosure then
+                    local okL, resL = pcall(islclosure, v)
+                    isLua = okL and resL == true
+                end
+                if isLua then
+                    Diag.fnLua = Diag.fnLua + 1
+                    fnList[#fnList + 1] = v
+                    if isGameFn(v) then
+                        Diag.fnGame = Diag.fnGame + 1
+                        if not Refs.SetTile and isSetTileFn(v) then
+                            Refs.SetTile = v
+                        elseif not Refs.Punch and isPunchFn(v) then
+                            Refs.Punch = v
+                            Diag.punchBy = "konstanta"
+                        end
+                    end
                 end
             end
             if Refs.World and Refs.Inv and Refs.SetTile and Refs.State and Refs.Punch
-                and Refs.Menu and Refs.Gems and Refs.Hud and Refs.Others then break end
+                and Refs.Menu and Refs.Gems and Refs.Hud and Refs.Others and next(ItemIndex) ~= nil then break end
+        end
+        -- Pass 2: abaikan filter nama script, pilih fungsi dengan skor konstanta tertinggi
+        if not Refs.Punch and getconsts then
+            local best, bestScore = nil, 1
+            for _, fn in ipairs(fnList) do
+                if not isExecFn(fn) then
+                    local sc = punchScore(fn)
+                    if sc > bestScore then best, bestScore = fn, sc end
+                end
+            end
+            if best then
+                Refs.Punch = best
+                Diag.punchBy = "konstanta longgar (skor " .. bestScore .. ")"
+                local okS, src = pcall(debug.info, best, "s")
+                if okS and type(src) == "string" then Diag.srcSample[1] = src end
+            end
+        end
+        -- Pass 3: tanpa getconstants -> nama fungsi mengandung "punch" dan berbagi world sebagai upvalue
+        if not Refs.Punch and Refs.World and debug and debug.getupvalues and debug.info then
+            for _, fn in ipairs(fnList) do
+                local okN, nm = pcall(debug.info, fn, "n")
+                if okN and type(nm) == "string" and string.find(string.lower(nm), "punch", 1, true)
+                    and not isExecFn(fn) then
+                    local okU, ups = pcall(debug.getupvalues, fn)
+                    if okU and type(ups) == "table" then
+                        for _, u in pairs(ups) do
+                            if u == Refs.World then Refs.Punch = fn; Diag.punchBy = "nama fungsi" break end
+                        end
+                    end
+                end
+                if Refs.Punch then break end
+            end
         end
         return Refs.World ~= nil
     end
@@ -793,7 +931,25 @@ local BERAKHUB_LOGIC = [=[
         end)
     end
     
-    local function refsText()
+    local function diagText()
+        local n = 0
+        for _ in pairs(ItemIndex) do n = n + 1 end
+        local lines = {
+            "ItemDB: " .. Diag.itemSource .. " (" .. n .. " item)",
+            "Inventory: " .. (Refs.Inv and "ditemukan" or "TIDAK ditemukan"),
+            "Punch: " .. (Refs.Punch and ("ditemukan via " .. Diag.punchBy) or "TIDAK ditemukan"),
+            "Fungsi diperiksa: " .. Diag.fnTotal .. " (Lua " .. Diag.fnLua .. ", game " .. Diag.fnGame .. ")",
+            "getconstants: " .. Diag.consts,
+        }
+        if #Diag.srcSample > 0 then lines[#lines + 1] = "Sumber punch: " .. Diag.srcSample[1] end
+        if #Diag.requireErr > 0 then
+            lines[#lines + 1] = "Error require: " .. table.concat(Diag.requireErr, "; ")
+        end
+        return table.concat(lines, "\n")
+    end
+    getgenv().BerakHUB_DiagText = diagText
+
+    local function refsTextBase()
         return "World: " .. (Refs.World and "OK" or "NO")
             .. " | Inventory: " .. (Refs.Inv and "OK" or "NO")
             .. " | setTile: " .. (Refs.SetTile and "OK" or "fallback")
@@ -802,6 +958,11 @@ local BERAKHUB_LOGIC = [=[
             .. " | Drops: " .. (Drops.list and "OK" or "NO")
             .. " | Trees: " .. (Refs.Trees and "OK" or "NO")
             .. " | Players: " .. (Refs.Others and "OK" or "NO")
+    end
+    local function refsText()
+        local extra = ""
+        if not Refs.Punch or not Refs.Inv or next(ItemIndex) == nil then extra = "\n" .. diagText() end
+        return extra == "" and refsTextBase() or (refsTextBase() .. extra)
     end
     
     -- ---------- inventory (read from the game's own live table) ----------
@@ -5136,6 +5297,9 @@ pcall(function()
         has("getgc", type(getgc) == "function"),
         has("debug.getupvalues", type(debug) == "table" and type(debug.getupvalues) == "function"),
         has("debug.info", type(debug) == "table" and type(debug.info) == "function"),
+        has("getconstants", (type(debug) == "table" and type(debug.getconstants) == "function")
+            or type(getconstants) == "function"),
+        has("islclosure", type(islclosure) == "function"),
         has("getconnections", type(getconnections) == "function"),
         has("writefile / readfile / isfile",
             type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"),
@@ -5154,6 +5318,21 @@ pcall(function()
         g:AddLabel("Executor ini tidak punya getgc / debug.getupvalues lengkap. " ..
             "Tombol 'Connect to game' dan fitur farm TIDAK akan menemukan fungsi game, " ..
             "walaupun UI muncul normal.", true)
+    end
+
+    local diagFn = getgenv().BerakHUB_DiagText
+    if type(diagFn) == "function" then
+        local g3 = dbg:AddLeftGroupbox("Diagnostik pencarian game")
+        local dl = g3:AddLabel(diagFn(), true)
+        g3:AddButton({ Text = "Perbarui diagnostik", Func = function()
+            pcall(function() dl:SetText(diagFn()) end)
+        end })
+        g3:AddButton({ Text = "Salin diagnostik", Func = function()
+            if type(setclipboard) == "function" then
+                pcall(setclipboard, diagFn())
+                Library:Notify({ Title = "BerakHUB", Description = "Diagnostik disalin", Time = 2 })
+            end
+        end })
     end
 
     local g2 = dbg:AddRightGroupbox("Error")
