@@ -614,6 +614,16 @@ local BERAKHUB_LOGIC = [=[
     local WorldRemotes = ReplicatedStorage:FindFirstChild("WorldRemotes")
     local SetTileRemote = WorldRemotes and WorldRemotes:FindFirstChild("SetTile") or nil
     local TakeDropRemote = WorldRemotes and WorldRemotes:FindFirstChild("TakeDrop") or nil
+
+    local function refreshGameContainers()
+        if not Shared then Shared = ReplicatedStorage:FindFirstChild("Shared") end
+        if not WorldRemotes then WorldRemotes = ReplicatedStorage:FindFirstChild("WorldRemotes") end
+        if WorldRemotes then
+            SetTileRemote = SetTileRemote or WorldRemotes:FindFirstChild("SetTile")
+            TakeDropRemote = TakeDropRemote or WorldRemotes:FindFirstChild("TakeDrop")
+        end
+    end
+    refreshGameContainers()
     -- Diagnostik pencarian data game (ditampilkan di tab Farm dan Debug)
     local Diag = {
         itemSource = "tidak ada", requireErr = {}, reqOk = {},
@@ -1084,8 +1094,18 @@ local BERAKHUB_LOGIC = [=[
         if ok and type(n) == "number" then return n end
         local total = 0
         pcall(function()
-            for _, slot in ipairs(Refs.Inv.slots) do
-                if slot.id == id then total = total + (slot.n or slot.count or 0) end
+            for _, slot in pairs(Refs.Inv.slots) do
+                if type(slot) == "table" and slot.id == id then
+                    total = total + (tonumber(slot.n or slot.count) or 0)
+                end
+            end
+
+            if total == 0 then
+                for key, slot in pairs(Refs.Inv.slots) do
+                    if type(slot) == "number" and tonumber(key) == id then
+                        total = total + slot
+                    end
+                end
             end
         end)
         return total
@@ -1104,9 +1124,17 @@ local BERAKHUB_LOGIC = [=[
     local function placeableIds()
         local ids = {}
         if Refs.Inv then
-            for _, slot in ipairs(Refs.Inv.slots) do
-                if slot.id and (slot.n or slot.count or 0) > 0 and isPlaceable(slot.id) then
-                    ids[#ids + 1] = slot.id
+            for _, slot in pairs(Refs.Inv.slots) do
+                if type(slot) == "table" then
+                    local id = tonumber(slot.id)
+                    local amount = tonumber(slot.n or slot.count) or 0
+                    if id and amount > 0 and isPlaceable(id) then ids[#ids + 1] = id end
+                end
+            end
+            for id, amount in pairs(Refs.Inv.slots) do
+                if type(amount) == "number" then
+                    id, amount = tonumber(id), tonumber(amount)
+                    if id and amount > 0 and isPlaceable(id) then ids[#ids + 1] = id end
                 end
             end
         end
@@ -1117,12 +1145,25 @@ local BERAKHUB_LOGIC = [=[
     local function seedIds()
         local ids = {}
         if Refs.Inv then
-            for _, slot in ipairs(Refs.Inv.slots) do
-                local it = slot.id and ItemDB[slot.id]
-                if it and it.kind == "seed" and (slot.n or slot.count or 0) > 0 then
-                    ids[#ids + 1] = slot.id
+            for _, slot in pairs(Refs.Inv.slots) do
+                if type(slot) == "table" then
+                    local id = tonumber(slot.id)
+                    local it = id and ItemDB[id]
+                    if it and it.kind == "seed" and (tonumber(slot.n or slot.count) or 0) > 0 then
+                        ids[#ids + 1] = id
+                    end
                 end
             end
+            for id, amount in pairs(Refs.Inv.slots) do
+                id, amount = tonumber(id), tonumber(amount)
+                local it = id and ItemDB[id]
+                if id and it and it.kind == "seed" and amount and amount > 0 then ids[#ids + 1] = id end
+            end
+            table.sort(ids)
+            local unique = {}
+            for _, id in ipairs(ids) do unique[id] = true end
+            ids = {}
+            for id in pairs(unique) do ids[#ids + 1] = id end
         end
         table.sort(ids)
         return ids
@@ -1186,7 +1227,7 @@ local BERAKHUB_LOGIC = [=[
             if C.dd.clearScaffold then pcall(function() C.dd.clearScaffold:SetValues(labels) end) end
             if C.dd.farmerScaffold then pcall(function() C.dd.farmerScaffold:SetValues(labels) end) end
             selectSaved(C.dd.clearScaffold, labels, idFromLabel(C.cfg.GBX_ClearScaffold))
-            selectSaved(C.dd.farmerScaffold, labels, idFromLabel(C.cfg.GBX_ClearScaffold))
+            selectSaved(C.dd.farmerScaffold, labels, idFromLabel(C.cfg.GBX_FarmerScaffold))
         end
     end
     
@@ -1209,8 +1250,14 @@ local BERAKHUB_LOGIC = [=[
     local function watchInventory()
         if invConn then pcall(function() invConn:Disconnect() end) end
         invConn = nil
-        if Refs.Inv and typeof(Refs.Inv.changed) == "Instance" then
-            invConn = Refs.Inv.changed.Event:Connect(function()
+        if not Refs.Inv then return end
+        local changed = Refs.Inv.changed
+        if typeof(changed) == "Instance" and changed:IsA("BindableEvent") then
+            invConn = changed.Event:Connect(function()
+                if alive() then refreshInvDropdown(false) end
+            end)
+        elseif typeof(changed) == "RBXScriptSignal" then
+            invConn = changed:Connect(function()
                 if alive() then refreshInvDropdown(false) end
             end)
         end
