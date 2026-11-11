@@ -553,6 +553,7 @@ local BERAKHUB_LOGIC = [=[
             GBX_ClearSweep = "Kiri → Kanan",
             GBX_ClearUseBlock = false,
             GBX_ClearScaffold = "",
+            GBX_FarmerScaffold = "",
             GBX_ClearCollect = true,
             GBX_ScanAuto = false,
             GBX_ScanQuery = "",
@@ -1085,7 +1086,20 @@ local BERAKHUB_LOGIC = [=[
     -- ---------- inventory (read from the game's own live table) ----------
     local function itemName(id)
         local it = ItemDB[id]
-        return (it and it.name) or ("Item #" .. tostring(id))
+        return (it and (it.name or it.Name)) or tostring(id)
+    end
+
+    local function itemId(value)
+        if value == nil then return nil end
+        if type(value) == "number" then return value end
+        local numeric = tonumber(value)
+        if numeric then return numeric end
+        for id, it in pairs(ItemIndex) do
+            if type(it) == "table" and (it.name == value or it.Name == value) then
+                return id
+            end
+        end
+        return value
     end
     
     local function invCount(id)
@@ -1171,25 +1185,31 @@ local BERAKHUB_LOGIC = [=[
     
     local function idFromLabel(label)
         if type(label) ~= "string" then return nil end
-        return tonumber(string.match(label, "%[(%d+)%]$"))
+        return idFromItemLabel(label)
     end
     
     local function inventoryLabels(ids)
         local out = {}
         for _, id in ipairs(ids) do
-            out[#out + 1] = string.format("%s [%d]", itemName(id), id)
+            out[#out + 1] = itemName(id)
         end
         if #out == 0 then out = { "(inventory empty / not read yet)" } end
         return out
+    end
+
+    local function idFromItemLabel(label)
+        if type(label) ~= "string" then return nil end
+        local id = itemId(label)
+        return type(id) == "number" and id or nil
     end
     
     local lastInvSig, lastSeedSig, lastBlockSig = nil, nil, nil
     local invRefreshPending = false
     local function selectSaved(opt, labels, id)
         if not opt or not id then return end
-        local want = "[" .. tostring(id) .. "]"
+        local want = itemName(id)
         for _, label in ipairs(labels) do
-            if string.sub(label, -#want) == want then
+            if label == want then
                 pcall(function() opt:SetValue(label) end)
                 return
             end
